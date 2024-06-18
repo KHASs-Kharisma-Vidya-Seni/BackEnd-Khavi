@@ -50,12 +50,11 @@ app.get("/", (req, res) => {
 app.use("/api/users", verifyTokenJWT, userRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/forum", verifyTokenJWT, forumRouter);
-app.use("/api/comment", commentRouter);
-
+app.use("/api/comment", verifyTokenJWT, commentRouter);
 
 app.get("/current-user", verifyTokenJWT, (req, res) => {
   // Kirim data pengguna saat ini sebagai respons
-  console.log(req.user)
+  console.log(req.user);
   res.json(req.user);
 });
 
