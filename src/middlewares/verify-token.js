@@ -5,11 +5,11 @@ import { supabase } from "../helper/supabaseClient.js";
 const verifyTokenJWT = asyncHandler(async (req, res, next) => {
   const token = req.cookies.accessToken || req.header("auth-token");
 
-  console.log({
-    token: token,
-    cookies: req.cookies.accessToken,
-    headers: req.headers,
-  });
+  // console.log({
+  //   token: token,
+  //   cookies: req.cookies.accessToken,
+  //   headers: req.headers,
+  // });
 
   if (!token) {
     return res.status(401).json({ error: "Access Denied" });
@@ -23,7 +23,7 @@ const verifyTokenJWT = asyncHandler(async (req, res, next) => {
       .eq("uid", decoded.id)
       .single();
 
-    console.log(decoded);
+    // console.log(decoded);
 
     if (error || !user) {
       return res.status(401).json({ error: "Invalid token or user not found" });
@@ -31,7 +31,7 @@ const verifyTokenJWT = asyncHandler(async (req, res, next) => {
 
     req.user = user;
 
-    console.log("User: ", req.user);
+    // console.log("User: ", req.user);
 
     next();
   } catch (error) {

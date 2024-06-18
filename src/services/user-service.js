@@ -9,7 +9,7 @@ export const fetchAllUsers = async () => {
 export const fetchUserById = async (id) => {
   let { data: user, error } = await supabase
     .from("user")
-    .select("uid, username, email")
+    .select("uid, username, email, photoURL")
     .eq("uid", id)
     .single();
   return { user, error };
