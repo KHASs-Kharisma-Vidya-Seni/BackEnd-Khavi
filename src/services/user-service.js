@@ -1,12 +1,11 @@
 import { supabase } from "../helper/supabaseClient.js";
 
-
 export const fetchAllUsers = async () => {
   let { data: users, error } = await supabase.from("user").select("uid, username, email");
   return { users, error };
 };
 
-export const fetchUserById = async (id) => {
+export const fetchUserById = async id => {
   let { data: user, error } = await supabase
     .from("user")
     .select("uid, username, email, photoURL")

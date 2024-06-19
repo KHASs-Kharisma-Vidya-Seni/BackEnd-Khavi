@@ -31,13 +31,9 @@ const authRegister = asyncHandler(async (req, res) => {
     const hashedPassword = bcrypt.hashSync(password, salted);
 
     // Token verifikasi unik dengan kadaluarsa 5 menit
-    const verificationToken = jwt.sign(
-      { email },
-      process.env.JWT_RESET_PASSWORD_SECRET,
-      {
-        expiresIn: "5m",
-      },
-    );
+    const verificationToken = jwt.sign({ email }, process.env.JWT_RESET_PASSWORD_SECRET, {
+      expiresIn: "5m",
+    });
 
     const newUser = {
       username,
@@ -48,9 +44,7 @@ const authRegister = asyncHandler(async (req, res) => {
     };
 
     // Simpan data pengguna ke dalam tabel user
-    const { data: userData, error: dbError } = await supabase
-      .from("user")
-      .insert(newUser);
+    const { data: userData, error: dbError } = await supabase.from("user").insert(newUser);
 
     if (dbError) {
       return res.status(500).json({ error: "Error registering user" });
@@ -67,12 +61,10 @@ const authRegister = asyncHandler(async (req, res) => {
     console.log("User created successfully");
     console.log(newUser);
 
-    return res
-      .status(201)
-      .json({ message: "User registered successfully", newUserReg });
-      // .send(
-      //   "User registered successfully, please check your email for verification",
-      // );
+    return res.status(201).json({ message: "User registered successfully", newUserReg });
+    // .send(
+    //   "User registered successfully, please check your email for verification",
+    // );
   } catch (error) {
     return res.status(400).json({ error: error.message });
   }
@@ -90,17 +82,12 @@ const authLogin = asyncHandler(async (req, res) => {
       .eq("email", email);
 
     if (usersError) throw usersError;
-    if (users.length === 0)
-      return res.status(400).json({ error: "Email not found" });
+    if (users.length === 0) return res.status(400).json({ error: "Email not found" });
 
     const currentUser = users[0];
-    const checkPassword = bcrypt.compareSync(
-      req.body.password,
-      currentUser.password,
-    );
+    const checkPassword = bcrypt.compareSync(req.body.password, currentUser.password);
 
-    if (!checkPassword)
-      return res.status(400).json({ error: "Email or Password is incorrect" });
+    if (!checkPassword) return res.status(400).json({ error: "Email or Password is incorrect" });
 
     if (!currentUser.verified) {
       res.status(401).send("Please verify your email before logging in");
@@ -117,7 +104,7 @@ const authLogin = asyncHandler(async (req, res) => {
         httpOnly: true,
         path: "/",
         secure: true,
-        // sameSite: "none",
+        sameSite: "none",
         expires: new Date(Date.now() + 60 * 60 * 1000),
       })
       .header("auth-token", jwtToken)

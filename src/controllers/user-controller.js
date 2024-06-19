@@ -1,7 +1,8 @@
 import asyncHandler from "express-async-handler";
+import getErrorMessage from "../helper/erorr-message.js";
+
 import { fetchAllForums, fetchAllUsers, fetchUserById } from "../services/user-service.js";
 import { supabase, supabaseBucket } from "../helper/supabaseClient.js";
-
 
 export const getUsers = asyncHandler(async (req, res) => {
   try {
@@ -19,15 +20,23 @@ export const getUsers = asyncHandler(async (req, res) => {
 
 export const getUsersWithForums = asyncHandler(async (req, res) => {
   try {
+    // Mengambil semua pengguna
     const { users, error: usersError } = await fetchAllUsers();
+    // Mengambil semua forum
     const { forums, error: forumsError } = await fetchAllForums();
 
-    if (usersError || forumsError) {
-      console.error("Error fetching data:", usersError || forumsError);
-      return res.status(500).json({ error: "Internal server error" });
+    // Tangani error saat mengambil data pengguna atau forum
+    if (usersError) {
+      console.error("Error mengambil data pengguna:", usersError);
+      return res.status(500).json(getErrorMessage(usersError));
     }
 
-    // Merge users and their forums
+    if (forumsError) {
+      console.error("Error mengambil data forum:", forumsError);
+      return res.status(500).json(getErrorMessage(forumsError));
+    }
+
+    // Gabungkan pengguna dengan forum mereka
     const usersWithForums = users.map(user => {
       const userForums = forums.filter(forum => forum.id_user === user.uid);
       return { ...user, forums: userForums };
@@ -35,24 +44,32 @@ export const getUsersWithForums = asyncHandler(async (req, res) => {
 
     res.json(usersWithForums);
   } catch (error) {
-    console.error("Error fetching data:", error.message);
-    res.status(500).json({ error: "Internal server error" });
+    console.error(getErrorMessage(error));
+    res.status(500).json(getErrorMessage(error));
   }
 });
 
 export const getUserById = asyncHandler(async (req, res) => {
   try {
-    const { id } = req.params;
+    const { id } = req.params; // Mengambil parameter 'id' dari URL
 
-    const { user, error: UserError } = await fetchUserById(id);
+    const { user, error: userError } = await fetchUserById(id); // Memanggil fungsi fetchUserById untuk mendapatkan user berdasarkan ID
 
-    if (UserError) throw UserError;
+    if (userError) {
+      // Jika terdapat error saat mengambil user, kembalikan respon 400 dengan pesan error yang jelas
+      return res.status(400).json({ error: `Error fetching user: ${userError.message}` });
+    }
 
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user) {
+      // Jika user tidak ditemukan, kembalikan respon 404 dengan pesan "User not found"
+      return res.status(404).json({ message: "User not found" });
+    }
 
+    // Jika user ditemukan, kembalikan data user dengan respon 200
     return res.status(200).json(user);
   } catch (error) {
-    return res.status(500).json({ error: error.message });
+    // Jika terjadi kesalahan di luar pengambilan user, kembalikan respon 500 dengan pesan error
+    return res.status(500).json({ error: `Server error: ${error.message}` });
   }
 });
 
@@ -61,73 +78,77 @@ export const updateUserProfile = asyncHandler(async (req, res) => {
     const { username } = req.body;
     const image = req.file;
 
-    const { id } = req.params; // User ID from URL parameter
-    const uid = req.user.uid; // Current user's UID from authentication
+    const { id } = req.params; // ID pengguna dari parameter URL
+    const uid = req.user.uid; // UID pengguna saat ini dari autentikasi
 
-    // Ensure UID from req.user matches ID from req.params
+    // console.log(req.user);
+
+    // Pastikan UID dari req.user cocok dengan ID dari req.params
     if (uid !== id) {
-      return res.status(403).json({ error: "Unauthorized access. User ID does not match." });
+      return res.status(403).json({ error: "Akses tidak diizinkan. ID pengguna tidak cocok." });
     }
 
-    // Validate user ID
+    // Validasi UID pengguna
     if (!uid) {
-      return res.status(400).json({ error: "User ID is required to perform this action." });
+      return res
+        .status(400)
+        .json({ error: "ID pengguna diperlukan untuk melakukan tindakan ini." });
     }
 
-    // Fetch user data from Supabase
+    // Ambil data pengguna dari Supabase
     const { data: user, error: userError } = await supabase
       .from("user")
       .select("uid, username, photoURL")
       .eq("uid", uid)
       .single();
 
-    // Handle user fetch errors
+    // Tangani error saat mengambil data pengguna
     if (userError) {
-      return res.status(404).json({ error: "User not found." });
+      return res.status(404).json({ error: "Pengguna tidak ditemukan." });
     }
 
-    // Check if the retrieved user is the logged-in user
+    // Periksa apakah pengguna yang diambil adalah pengguna yang sedang login
     if (user.uid !== uid) {
-      return res.status(403).json({ error: "Unauthorized." });
+      return res.status(403).json({ error: "Akses tidak diizinkan." });
     }
 
-    let imageUrl = user.photoURL; // Initialize imageUrl with current photoURL
+    let imageUrl = user.photoURL; // Inisialisasi imageUrl dengan photoURL saat ini
 
-    // Handle image upload (if an image is provided)
+    // Tangani upload gambar (jika gambar disediakan)
     if (image) {
-      // Fetch old image data
+      // Ambil data gambar lama
       const { data: oldUserData, error: oldUserError } = await supabase
         .from("user")
         .select("photoURL")
         .eq("uid", uid)
         .single();
 
-      // Handle errors fetching old image data
+      // Tangani error saat mengambil data gambar lama
       if (oldUserError) {
-        console.error("Error fetching old user data:", oldUserError);
-        return res.status(500).json({ error: "Failed to fetch old user data." });
+        console.error("Error mengambil data pengguna lama:", oldUserError);
+        return res.status(500).json({ error: "Gagal mengambil data pengguna lama." });
       }
 
       let oldImageUrl = null;
 
-      // If there's an existing photoURL, delete the old image from Supabase Storage
+      // Jika ada photoURL yang ada, hapus gambar lama dari Penyimpanan Supabase
       if (oldUserData && oldUserData.photoURL) {
         oldImageUrl = oldUserData.photoURL;
-        const fileName = oldImageUrl.split("/").pop(); // Extract filename from URL
+        const fileName = oldImageUrl.split("/").pop(); // Ambil nama file dari URL
 
-        // Remove old image from Supabase Storage
+        // Hapus gambar lama dari Penyimpanan Supabase
         const { data: deleteData, error: deleteError } = await supabaseBucket.remove(
           `profile/${fileName}`,
         );
 
-        // Handle errors deleting old image
+        // Tangani error saat menghapus gambar lama
         if (deleteError) {
-          console.error("Error deleting old image:", deleteError);
-          return res.status(500).json({ error: "Failed to delete old image." });
+          console.error("Error menghapus gambar lama:", deleteError);
+          return res.status(500).json({ error: "Gagal menghapus gambar lama." });
         }
       }
 
-      // Upload new image to Supabase Storage
+      // Upload gambar baru ke Penyimpanan Supabase
       const { data: uploadData, error: uploadError } = await supabaseBucket.upload(
         `profile/${image.originalname}`,
         image.buffer,
@@ -136,17 +157,17 @@ export const updateUserProfile = asyncHandler(async (req, res) => {
         },
       );
 
-      // Handle errors uploading new image
+      // Tangani error saat mengunggah gambar baru
       if (uploadError) {
-        console.error("Error uploading new image:", uploadError);
-        return res.status(500).json({ error: "Failed to upload new image." });
+        console.error("Error mengunggah gambar baru:", uploadError);
+        return res.status(500).json({ error: "Gagal mengunggah gambar baru." });
       }
 
-      // Construct imageUrl with the newly uploaded image URL
+      // Buat imageUrl dengan URL gambar yang baru diunggah
       imageUrl = `${process.env.SUPABASE_URL}/storage/v1/object/public/images/profile/${image.originalname}`;
     }
 
-    // Update user record in Supabase database
+    // Perbarui data pengguna di database Supabase
     const { data: updatedUser, error: updateError } = await supabase
       .from("user")
       .update({
@@ -156,19 +177,60 @@ export const updateUserProfile = asyncHandler(async (req, res) => {
       .eq("uid", uid)
       .single();
 
-    // Handle errors updating user record
+    // Tangani error saat memperbarui data pengguna
     if (updateError) {
-      console.error("Error updating user record:", updateError);
-      return res.status(500).json({ error: "Failed to update user record." });
+      console.error("Error memperbarui data pengguna:", updateError);
+      return res.status(500).json({ error: "Gagal memperbarui data pengguna." });
     }
 
-    // Respond with success message and updated user data
-    res.status(200).json({ message: "User updated successfully.", user: updatedUser });
+    // Berikan respon dengan pesan sukses dan data pengguna yang diperbarui
+    res.status(200).json({ message: "Pengguna berhasil diperbarui.", user: updatedUser });
   } catch (error) {
-    // Log the error for debugging purposes
-    console.error("Error updating user:", error);
+    // Catat error untuk keperluan debugging
+    console.error("Error memperbarui pengguna:", error);
 
-    // Respond with an appropriate error message
-    res.status(500).json({ error: "Failed to update user. Please try again later." });
+    // Berikan respon dengan pesan error yang sesuai
+    res.status(500).json({ error: "Gagal memperbarui pengguna. Silakan coba lagi nanti." });
+  }
+});
+
+export const deleteUser = asyncHandler(async (req, res) => {
+  try {
+    const { id } = req.params; // id dari pengguna yang akan dihapus
+    const userLogin = req.user.uid; // pengguna yang sedang login.
+
+    console.log(id, userLogin);
+
+    // Mendapatkan informasi pengguna dari database
+    const { user, error } = await fetchUserById(id);
+
+    // Memeriksa apakah pengguna ditemukan
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Memeriksa apakah ada error saat mengambil data pengguna
+    if (error) {
+      return res.status(400).json({ message: "Error fetching user" });
+    }
+
+    // Memeriksa apakah pengguna yang mengirim permintaan adalah pengguna yang akan dihapus
+    // if (userLogin !== user.uid) {
+    //   return res.status(403).json({ error: "You are not authorized to delete this user" });
+    // }
+
+    // Menghapus user dari database Supabase
+    const { data, deleteError } = await supabase.from("user").delete().eq("uid", user.uid);
+
+    // Memeriksa apakah ada error saat menghapus pengguna
+    if (deleteError) {
+      return res.status(400).json({ error: deleteError.message, message: "Error deleting user" });
+    }
+
+    // Mengembalikan respons berhasil jika pengguna berhasil dihapus
+    return res.status(200).json({ message: "User deleted successfully", user: id });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: error.message, message: "Error deleting user" });
   }
 });
