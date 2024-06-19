@@ -5,6 +5,8 @@ import session from "express-session";
 import cookieParser from "cookie-parser";
 import morgan from "morgan";
 
+import MemoryStore from "memorystore";
+
 import userRouter from "./routes/user.js";
 import authRouter from "./routes/auth.js";
 import forumRouter from "./routes/forum.js";
@@ -17,12 +19,17 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 3000;
 
+const MemoryStoreSession = MemoryStore(session);
+
 const corsOptions = {
   origin: process.env.CORS_ORIGIN || "http://localhost:8080",
   credentials: true,
 };
 
 const sessionOptions = {
+  store: new MemoryStoreSession({
+    checkPeriod: 3600, // prune expired entries every 1h
+  }),
   secret: process.env.JWT_SECRET,
   resave: false,
   saveUninitialized: false,
