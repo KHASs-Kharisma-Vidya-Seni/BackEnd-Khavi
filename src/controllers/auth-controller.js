@@ -127,7 +127,7 @@ const authLogout = asyncHandler(async (req, res) => {
       sameSite: "none",
     })
     .status(200)
-    .send("user logged out");
+    .send("user logged out")
 });
 
 const authVerify = asyncHandler(async (req, res) => {
