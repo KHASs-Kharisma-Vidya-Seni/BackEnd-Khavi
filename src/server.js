@@ -13,6 +13,9 @@ import forumRouter from "./routes/forum.js";
 import commentRouter from "./routes/comment.js";
 import verifyTokenJWT from "./middlewares/verify-token.js";
 import pathJoin from "./utility/dirname.js";
+import pool, { getPgVersion } from "./lib/db-neon.js";
+import { v4 as uuidv4 } from "uuid";
+import { fetchAllForums } from "./services/user-service.js";
 
 dotenv.config();
 
@@ -60,7 +63,6 @@ app.use("/api/forum", verifyTokenJWT, forumRouter);
 app.use("/api/comment", verifyTokenJWT, commentRouter);
 
 app.get("/api/current-user", verifyTokenJWT, (req, res) => {
-  // Kirim data pengguna saat ini sebagai respons
   console.log(req.user);
   res.json(req.user);
 });
@@ -68,4 +70,5 @@ app.get("/api/current-user", verifyTokenJWT, (req, res) => {
 // listen
 app.listen(port, () => {
   console.log(`Server is running on port http://localhost:${port}`);
+  getPgVersion();
 });

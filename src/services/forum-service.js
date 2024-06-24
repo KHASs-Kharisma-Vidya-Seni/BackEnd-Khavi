@@ -1,55 +1,80 @@
-import { supabase } from "../helper/supabaseClient.js";
+import pool from "../lib/db-neon.js";
 
+// Get user by ID in forum
 export const getUserByIdInForum = async (userId, withUserDetails = false) => {
-  const { data: user, error } = await supabase
-    .from("user")
-    .select(withUserDetails ? "uid, username, email, photoURL" : "uid")
-    .eq("uid", userId)
-    .single();
-
-  return { user, error };
+  const client = await pool.connect();
+  try {
+    const query = withUserDetails
+      ? 'SELECT uid, username, email, "photo_url" FROM "users" WHERE uid = $1'
+      : 'SELECT uid FROM "users" WHERE uid = $1';
+    const result = await client.query(query, [userId]);
+    return { user: result.rows[0], error: null };
+  } catch (error) {
+    return { user: null, error };
+  } finally {
+    client.release();
+  }
 };
 
+// Get forum by ID
 export const getForumById = async forumId => {
-  const { data: forum, error } = await supabase.from("forum").select("*").eq("id_forum", forumId);
-
-  return { forum, error };
+  const client = await pool.connect();
+  try {
+    const result = await client.query('SELECT * FROM "forum" WHERE id_forum = $1', [forumId]);
+    return { forum: result.rows[0], error: null };
+  } catch (error) {
+    return { forum: null, error };
+  } finally {
+    client.release();
+  }
 };
 
+// Get all forums
 export const getAllForum = async () => {
-  const { data: forums, error } = await supabase.from("forum").select("*");
-
-  return { forums, error };
+  const client = await pool.connect();
+  try {
+    const result = await client.query('SELECT * FROM "forum"');
+    return { forums: result.rows, error: null };
+  } catch (error) {
+    return { forums: null, error };
+  } finally {
+    client.release();
+  }
 };
 
+// Get all comments
 export const getAllComments = async () => {
-  const { data: comments, error } = await supabase.from("comments").select("*");
-
-  return { comments, error };
+  const client = await pool.connect();
+  try {
+    const result = await client.query('SELECT * FROM "comment"');
+    return { comments: result.rows, error: null };
+  } catch (error) {
+    return { comments: null, error };
+  } finally {
+    client.release();
+  }
 };
 
-const getAuthorForum = async forumId => {
-  const { user, error } = await getUserByIdInForum(forumId.id_user, true);
-
+// Get author forum
+const getAuthorForum = async userId => {
+  const { user, error } = await getUserByIdInForum(userId, true);
   if (error) return { error };
-
   return user;
 };
 
+// Get forum with comments
 export const getForumWithComments = async (withUser = false) => {
   const { forums, error: forumError } = await getAllForum();
   const { comments, error: commentError } = await getAllComments();
-  const { user: authorForum, error: userError } = await getUserByIdInForum(forums[0].id_user, true);
 
   if (forumError) return { error: forumError, message: "Something wrong with forum" };
   if (commentError) return { error: commentError, message: "Something wrong with comment" };
-  if (userError) return { error: userError, message: "Something wrong with user" };
 
   const forumCommentsWithUsers = await Promise.all(
     forums.map(async forum => {
       const forumComments = comments.filter(comment => comment.id_forum === forum.id_forum);
 
-      const authorForum = await getAuthorForum(forum);
+      const authorForum = await getAuthorForum(forum.id_user);
       forum.author = authorForum;
       delete forum.id_user;
 
@@ -57,7 +82,6 @@ export const getForumWithComments = async (withUser = false) => {
         forumComments.map(async comment => {
           if (withUser) {
             const userComment = await getUserByIdInForum(comment.id_user, true);
-
             delete comment.id_user;
             return { ...comment, user: userComment.user };
           } else {
