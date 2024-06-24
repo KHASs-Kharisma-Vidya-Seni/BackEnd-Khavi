@@ -1,22 +1,48 @@
-import { supabase } from "../helper/supabaseClient.js";
+// import { supabase } from "../helper/supabaseClient.js";
+import pool from "../lib/db-neon.js";
 
 export const fetchAllUsers = async () => {
-  let { data: users, error } = await supabase.from("user").select("uid, username, email");
-  return { users, error };
+  const client = await pool.connect();
+  try {
+    const result = await client.query('SELECT uid, username, email FROM "users"');
+
+    const users = result.rows;
+    return { users, error: null };
+  } catch (error) {
+    return { users: null, error: error.message };
+  } finally {
+    client.release();
+  }
 };
 
 export const fetchUserById = async id => {
-  let { data: user, error } = await supabase
-    .from("user")
-    .select("uid, username, email, photoURL")
-    .eq("uid", id)
-    .single();
-  return { user, error };
-};
+  const client = await pool.connect();
+  try {
+    const result = await client.query(
+      'SELECT uid, username, email, photo_url FROM "users" WHERE uid = $1',
+      [id],
+    );
 
+    const user = result.rows[0];
+    return { user, error: null };
+  } catch (error) {
+    return { user: null, error: error.message };
+  } finally {
+    client.release();
+  }
+};
 export const fetchAllForums = async () => {
-  let { data: forums, error } = await supabase
-    .from("forum")
-    .select("id_user, id_forum, content, image, created_at");
-  return { forums, error };
+  const client = await pool.connect();
+  try {
+    const result = await client.query(
+      'SELECT * FROM "forum"',
+    );
+
+    const forums = result.rows;
+    return { forums, error: null };
+  } catch (error) {
+    return { forums: null, error: error.message };
+  } finally {
+    client.release();
+  }
 };

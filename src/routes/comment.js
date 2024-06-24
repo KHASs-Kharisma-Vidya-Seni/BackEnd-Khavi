@@ -1,33 +1,45 @@
 import { Router } from "express";
-import { supabase } from "../helper/supabaseClient.js";
 import { getForumById, getUserByIdInForum } from "../services/forum-service.js";
+import pool from "../lib/db-neon.js";
+
 const router = Router();
 
 router.get("/", async (req, res) => {
   const { withUser, id_forum } = req.query;
 
   try {
-    const { data: comments, error } = await supabase.from("comments").select("*");
+    const client = await pool.connect();
+    try {
+      let commentsQuery = "SELECT * FROM comment";
 
-    if (withUser === "true") {
-      const commentsWithUsers = await Promise.all(
-        comments.map(async comment => {
-          const { user, error } = await getUserByIdInForum(comment.id_user, true);
-          const { forum } = await getForumById(comment.id_forum);
+      if (id_forum) {
+        commentsQuery += " WHERE id_forum = $1";
+      }
 
-          if (error) {
-            throw error;
-          }
+      const { rows } = await client.query(commentsQuery, [id_forum]);
 
-          delete comment.id_user;
-          return { ...comment, forum, user };
-        }),
-      );
+      if (withUser === "true") {
+        const commentsWithUsers = await Promise.all(
+          rows.map(async comment => {
+            const { user, error } = await getUserByIdInForum(comment.id_user, true);
+            const { forum } = await getForumById(comment.id_forum);
 
-      return res.status(200).json(commentsWithUsers);
+            if (error) {
+              throw error;
+            }
+
+            delete comment.id_user;
+            return { ...comment, forum, user };
+          }),
+        );
+
+        return res.status(200).json(commentsWithUsers);
+      }
+
+      res.status(200).json(rows);
+    } finally {
+      client.release();
     }
-
-    res.status(200).json(comments);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: error.message });
@@ -43,51 +55,45 @@ router.put("/:commentId/pin", async (req, res) => {
       return res.status(400).json({ error: "Comment ID is required" });
     }
 
-    if (!req.user) {
+    if (!req.user || !req.user.uid) {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-    // Query komentar berdasarkan ID
-    const { data: comment, error: commentError } = await supabase
-      .from("comments")
-      .select("*")
-      .eq("id_comment", commentId)
-      .single();
+    const userId = req.user.uid;
 
-    if (commentError) throw commentError;
+    // Fetch comment from PostgreSQL
+    const client = await pool.connect();
+    try {
+      const commentQuery = "SELECT * FROM comment WHERE id_comment = $1";
+      const { rows } = await client.query(commentQuery, [commentId]);
 
-    // Toggle status pin komentar
-    const updatedComment = { ...comment, pinned: !comment.pinned };
-    delete updatedComment.id_comment; // Hapus id_comment dari objek
+      if (rows.length === 0) {
+        return res.status(404).json({ error: "Comment not found" });
+      }
 
-    // Update data komentar di Supabase
-    const { error: updateError } = await supabase
-      .from("comments")
-      .update(updatedComment)
-      .eq("id_comment", commentId);
+      const comment = rows[0];
 
-    if (updateError) throw updateError;
+      // Check if user is authorized to update the comment
+      if (comment.id_user !== userId) {
+        return res.status(403).json({ error: "You are not authorized to update this comment" });
+      }
 
-    res.status(200).json({ message: "Comment pin status updated successfully" });
+      // Toggle pin status
+      const updatedPinnedStatus = !comment.pinned;
+
+      // Update comment in PostgreSQL
+      const updateCommentQuery = "UPDATE comment SET pinned = $1 WHERE id_comment = $2";
+      await client.query(updateCommentQuery, [updatedPinnedStatus, commentId]);
+
+      return res.status(200).json({ message: "Comment pin status updated successfully" });
+    } finally {
+      client.release();
+    }
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    res.status(500).json({ error: "Internal Server Error", message: error.message });
   }
 });
 
-// router.post("/", async (req, res) => {
-//   const { comment_content } = req.body;
-//   try {
-//     const { data, error } = await supabase.from("comments").insert(comment_content);
-
-//     if (error) {
-//       throw error;
-//     }
-
-//     res.json(data);
-//   } catch (error) {
-//     console.error(error);
-//     res.status(500).json({ error: error.message });
-//   }
-// });
 
 export default router;
