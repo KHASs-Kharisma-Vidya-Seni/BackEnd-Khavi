@@ -24,7 +24,7 @@ const createForum = asyncHandler(async (req, res) => {
 
     if (uploadError) throw uploadError;
 
-    const imageUrl = `${process.env.SUPABASE_URL}/storage/v1/object/public/images/${image.originalname}`;
+    const imageUrl = `${process.env.SUPABASE_URL}/storage/v1/object/public/images/images/${image.originalname}`;
     const createdAtLocal = moment().format();
 
     // Save forum data to PostgreSQL

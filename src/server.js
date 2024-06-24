@@ -12,10 +12,7 @@ import authRouter from "./routes/auth.js";
 import forumRouter from "./routes/forum.js";
 import commentRouter from "./routes/comment.js";
 import verifyTokenJWT from "./middlewares/verify-token.js";
-import pathJoin from "./utility/dirname.js";
-import pool, { getPgVersion } from "./lib/db-neon.js";
-import { v4 as uuidv4 } from "uuid";
-import { fetchAllForums } from "./services/user-service.js";
+import { getPgVersion } from "./lib/db-neon.js";
 
 dotenv.config();
 
@@ -25,7 +22,7 @@ const port = process.env.PORT || 3000;
 const MemoryStoreSession = MemoryStore(session);
 
 const corsOptions = {
-  origin: process.env.CORS_ORIGIN || "http://localhost:8080",
+  origin: process.env.CORS_ORIGIN,
   credentials: true,
 };
 
@@ -54,7 +51,8 @@ app.use(express.static("public"));
 
 // routes
 app.get("/", (req, res) => {
-  res.status(200).sendFile(pathJoin("verification_success.html"));
+  console.log(corsOptions.origin);
+  res.status(200).json({ message: "API LIVE KHAVII!!" });
 });
 
 app.use("/api/users", verifyTokenJWT, userRouter);
