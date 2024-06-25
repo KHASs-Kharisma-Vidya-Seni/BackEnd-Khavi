@@ -81,6 +81,10 @@ export const updateUserProfile = asyncHandler(async (req, res) => {
   const { id } = req.params; // ID pengguna dari parameter URL
   const uid = req.user.uid; // UID pengguna saat ini dari autentikasi
 
+  const timestamp = Date.now();
+
+  const urlName = timestamp + "-" + image.originalname;
+
   try {
     // Pastikan UID dari req.user cocok dengan ID dari req.params
     if (uid !== id) {
@@ -122,7 +126,7 @@ export const updateUserProfile = asyncHandler(async (req, res) => {
 
           // Hapus gambar lama dari Penyimpanan Supabase
           const { data: deleteData, error: deleteError } = await supabaseBucket.remove(
-            `profile/${fileName}`,
+            `profile/${urlName}`,
           );
 
           if (deleteError) {
@@ -146,7 +150,7 @@ export const updateUserProfile = asyncHandler(async (req, res) => {
         }
 
         // Buat imageUrl dengan URL gambar yang baru diunggah
-        imageUrl = `${process.env.SUPABASE_URL}/storage/v1/object/public/images/profile/${image.originalname}`;
+        imageUrl = `${process.env.SUPABASE_URL}/storage/v1/object/public/images/profile/${urlName}`;
       }
 
       // Perbarui data pengguna di PostgreSQL

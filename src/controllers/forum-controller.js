@@ -2,8 +2,12 @@ import asyncHandler from "express-async-handler";
 import moment from "moment";
 import pool from "../lib/db-neon.js";
 
-import { supabaseBucket } from "../helper/supabaseClient.js";
+import "moment-timezone";
+
+import { supabase, supabaseBucket } from "../helper/supabaseClient.js";
 import { getForumWithComments } from "../services/forum-service.js";
+
+moment.tz.setDefault("Asia/Jakarta");
 
 const createForum = asyncHandler(async (req, res) => {
   // console.log(req.user);
@@ -13,9 +17,13 @@ const createForum = asyncHandler(async (req, res) => {
     const { uid } = req.user;
     const id_user = uid;
 
+    const timestamp = Date.now();
+
+    const nameFile = timestamp + "_" + image.originalname;
+
     // Upload image to Supabase Storage
     const { data: uploadData, error: uploadError } = await supabaseBucket.upload(
-      `images/${image.originalname}`,
+      `images/${nameFile}`,
       image.buffer,
       {
         contentType: image.mimetype,
@@ -24,7 +32,7 @@ const createForum = asyncHandler(async (req, res) => {
 
     if (uploadError) throw uploadError;
 
-    const imageUrl = `${process.env.SUPABASE_URL}/storage/v1/object/public/images/images/${image.originalname}`;
+    const imageUrl = `${process.env.SUPABASE_URL}/storage/v1/object/public/images/images/${nameFile}`;
     const createdAtLocal = moment().format();
 
     // Save forum data to PostgreSQL
@@ -155,6 +163,8 @@ const updateForumById = asyncHandler(async (req, res) => {
 
       let imageUrl = forumData.image;
 
+      const timestamp = Date.now();
+
       // Menghapus gambar lama dari penyimpanan Supabase jika ada dan Mengunggah gambar baru jika ada
       if (image) {
         if (forumData.image) {
@@ -169,7 +179,7 @@ const updateForumById = asyncHandler(async (req, res) => {
         // Mengunggah gambar baru ke Supabase Storage
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from("images")
-          .upload(`images/${image.originalname}`, image.buffer, {
+          .upload(`images/${timestamp}_${image.originalname}`, image.buffer, {
             contentType: image.mimetype,
           });
 
@@ -260,18 +270,20 @@ const createCommentForum = asyncHandler(async (req, res) => {
       return res.status(400).json({ error: "id_user and comment_content are required" });
     }
 
+    const created_at = moment().format();
     const client = await pool.connect();
     try {
       // Insert the comment into the PostgreSQL database
       const insertCommentQuery = `
-        INSERT INTO comment (id_forum, id_user, comment_content)
-        VALUES ($1, $2, $3)
+        INSERT INTO comment (id_forum, id_user, comment_content, created_at)
+        VALUES ($1, $2, $3, $4)
         RETURNING *;
       `;
       const insertCommentResult = await client.query(insertCommentQuery, [
         id_forum,
         id_user,
         comment_content,
+        created_at,
       ]);
 
       const insertedComment = insertCommentResult.rows[0];
