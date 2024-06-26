@@ -5,7 +5,7 @@ export const getUserByIdInForum = async (userId, withUserDetails = false) => {
   const client = await pool.connect();
   try {
     const query = withUserDetails
-      ? 'SELECT uid, username, email, "photo_url" FROM "users" WHERE uid = $1'
+      ? 'SELECT uid, username, email, "photo_url", location FROM "users" WHERE uid = $1'
       : 'SELECT uid FROM "users" WHERE uid = $1';
     const result = await client.query(query, [userId]);
     return { user: result.rows[0], error: null };
@@ -96,3 +96,4 @@ export const getForumWithComments = async (withUser = false) => {
 
   return { forums: forumCommentsWithUsers };
 };
+

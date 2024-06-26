@@ -7,7 +7,7 @@ import "moment-timezone";
 import { supabase, supabaseBucket } from "../helper/supabaseClient.js";
 import { getForumWithComments } from "../services/forum-service.js";
 
-moment.tz.setDefault("Asia/Jakarta");
+moment.tz("Asia/Jakarta");
 
 const createForum = asyncHandler(async (req, res) => {
   // console.log(req.user);
@@ -33,7 +33,8 @@ const createForum = asyncHandler(async (req, res) => {
     if (uploadError) throw uploadError;
 
     const imageUrl = `${process.env.SUPABASE_URL}/storage/v1/object/public/images/images/${nameFile}`;
-    const createdAtLocal = moment().format();
+
+    const createdAtLocal = moment().format("YYYY-MM-DD HH:mm:ss");
 
     // Save forum data to PostgreSQL
     const client = await pool.connect();
@@ -66,7 +67,7 @@ const createForum = asyncHandler(async (req, res) => {
 });
 
 const getForums = asyncHandler(async (req, res) => {
-  const { withUser } = req.query;
+  const { withUser, q } = req.query;
   try {
     const forumCommentsWithUsers = await getForumWithComments(withUser === "true");
     res.json(forumCommentsWithUsers);
