@@ -7,6 +7,7 @@ backend khavi
 - [Node.js](https://nodejs.org/en/)
 - [Express.js](https://expressjs.com/)
 - [JWT](https://jwt.io/)
+- [Google Cloud]()
 - [Neon](https://neon.tech/)
 - [Supabase Bucket Storage ](https://supabase.com/)
 - [Nodemailer](https://nodemailer.com/)
