@@ -15,7 +15,7 @@ const verifyTokenJWT = asyncHandler(async (req, res, next) => {
     const client = await pool.connect();
     try {
       const result = await client.query(
-        'SELECT uid, username, email, photo_url FROM "users" WHERE uid = $1',
+        'SELECT uid, username, email, photo_url, location FROM "users" WHERE uid = $1',
         [decoded.id],
       );
 
