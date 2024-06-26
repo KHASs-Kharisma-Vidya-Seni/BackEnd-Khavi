@@ -177,16 +177,18 @@ const updateForumById = asyncHandler(async (req, res) => {
           if (deleteError) throw deleteError;
         }
 
+        const urlName = `${timestamp}_${image.originalname}`
+
         // Mengunggah gambar baru ke Supabase Storage
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from("images")
-          .upload(`images/${timestamp}_${image.originalname}`, image.buffer, {
+          .upload(`images/${urlName}`, image.buffer, {
             contentType: image.mimetype,
           });
 
         if (uploadError) throw uploadError;
 
-        imageUrl = `${process.env.SUPABASE_URL}/storage/v1/object/public/images/images/${image.originalname}`;
+        imageUrl = `${process.env.SUPABASE_URL}/storage/v1/object/public/images/images/${urlName}`;
       }
 
       const updateAtLocal = moment().format();
